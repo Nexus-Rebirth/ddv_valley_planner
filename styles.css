@@ -401,7 +401,7 @@ input[type="text"] {
   position: absolute;
   left: -50px;
   top: 0;
-  height: 180px;
+  height: 140px;
   background: var(--menu);
   color: white;
   border: none;
@@ -409,9 +409,6 @@ input[type="text"] {
   display: flex;
   justify-content: center;
   align-items: center;
-}
-
-#timersDrawer {
   z-index: 900;
 }
 
@@ -446,12 +443,9 @@ input[type="text"] {
   justify-self: center;
 }
 
-#gatheringDrawer {
-  z-index: 901;
-}
-
-#prepDrawer {
-  z-index: 902;
+.drawer.active-position {
+  top: max(165px, 12.4vh) !important;
+  z-index: 905;
 }
 
 /* ============================================================
@@ -459,9 +453,15 @@ input[type="text"] {
    ============================================================ */
 
 #timersDrawer {
-  top: 545px;
-  height: 340px;
+  top: max(449px ,34.3vh);
+  height: auto;
+  max-height: calc(100vh - 160px);
   width: auto;
+}
+
+#timersDrawer .drawer-content {
+    max-height: calc(100vh - 220px);
+    overflow-y: auto;
 }
 
 .timer-card {
@@ -527,12 +527,17 @@ input[type="text"] {
    ============================================================ */
 
 #gatheringDrawer {
-  top: 355px;
+  top: max(307px ,23.4vh);
   height: auto;
-  max-height: calc(100vh - 540px);
+  max-height: calc(100vh - 160px);
   width: auto;
   padding: 0 1rem;
   padding-bottom: 20px;
+}
+
+#gatheringDrawer .drawer-content {
+    max-height: calc(100vh - 220px);
+    overflow-y: auto;
 }
 
 .gathering-remove-btn {
@@ -583,10 +588,15 @@ input[type="text"] {
    ============================================================ */
 
 #prepDrawer {
-  top: 165px;
+  top: max(165px, 12.4vh);
   height: auto;
   max-height: calc(100vh - 160px);
   width: 500px;
+}
+
+#prepDrawer .drawer-content {
+    max-height: calc(100vh - 220px);
+    overflow-y: auto;
 }
 
 .prep-controls button {
