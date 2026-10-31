@@ -374,6 +374,14 @@ function renderCharactersPanel() {
 }
 
 function toggleCompleted(id) {
+  if (appState.completed[id]) {
+    const confirmed = confirm(
+      "Are you sure you want to mark this as not collected?",
+    );
+    if (!confirmed) {
+      return;
+    }
+  }
   appState.completed[id] = !appState.completed[id];
   saveState();
   const selectedCategory = document.getElementById("categorySelect").value;
@@ -523,12 +531,12 @@ function renderItemsPanel() {
 
   if (locationFilter !== "all") {
     list = list.filter((item) => {
-      const value = item.location || item.source;
-
-      return value === locationFilter;
+      if (item.locations?.includes(locationFilter)) {
+        return true;
+      }
+      return item.location === locationFilter || item.source === locationFilter;
     });
   }
-
   if (list.length === 0) {
     container.innerHTML = `<p>No results found.</p>`;
     return;
@@ -553,27 +561,28 @@ function renderItemsPanel() {
           const gatheringClass = isGathered ? "icon-gold" : "";
           const iconClass = owned ? "icon-gold" : "";
           return `
-        <img class="icon-btn gathering-add-item ${gatheringClass}"
-          <div class="recipe-material-content">
-            <img class="icon-btn ${iconClass}"
-              src="${icon}"
-              alt="Owned Status"
-            >
-            <span class="recipe-item-link"
-              data-name="${ingredient}"
-              title="View item details">
-              ${ingredient}
-            </span>
-          </div>
-          <img class="icon-btn gathering-add-item"
-            data-item="${ingredient}"
-            data-qty="1"
-            src="data/assets/addItem.svg"
-            alt="Add To Gathering"
-            title="Add item to list"
-          >
-        </div>
-      `;
+  <div class="recipe-material-row">
+    <div class="recipe-material-content">
+      <img class="icon-btn ${iconClass}"
+        src="${icon}"
+        alt="Owned Status"
+      >
+      <span class="recipe-item-link"
+        data-name="${ingredient}"
+        title="View item details">
+        ${ingredient}
+      </span>
+    </div>
+
+    <img class="icon-btn gathering-add-item ${gatheringClass}"
+      data-item="${ingredient}"
+      data-qty="1"
+      src="data/assets/addItem.svg"
+      alt="Add To Gathering"
+      title="Add item to list"
+    >
+  </div>
+`;
         })
         .join("<br>");
 
@@ -919,7 +928,13 @@ function renderItemsPanel() {
           storedAt: "",
         };
       }
-      appState.inventory[id].owned = !appState.inventory[id].owned;
+      const wasOwned = appState.inventory[id].owned;
+
+      appState.inventory[id].owned = !wasOwned;
+
+      if (!wasOwned && !appState.completed[id]) {
+        appState.completed[id] = true;
+      }
       saveState();
       renderItemsPanel();
       renderInventoryPanel();
@@ -954,6 +969,7 @@ function renderItemsPanel() {
     item.addEventListener("click", () => {
       document.querySelector('[data-panel="items"]').click();
       document.getElementById("itemSearch").value = item.dataset.name;
+      clearSearch.classList.remove("hidden");
       renderItemsPanel();
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
@@ -967,6 +983,7 @@ function renderItemsPanel() {
       const location =
         item?.locations?.[0] || item?.location || item?.source || "";
       addToGathering(btn.dataset.item, Number(btn.dataset.qty), location);
+      renderItemsPanel();
     });
   });
 
@@ -1076,9 +1093,13 @@ document.getElementById("toggleTimersDrawer").addEventListener("click", () => {
   const opening = drawer.classList.contains("collapsed");
   drawer.classList.toggle("collapsed");
   if (opening) {
+    prepDrawer.classList.add("collapsed");
+    gatheringDrawer.classList.add("collapsed");
+    setActiveDrawer(drawer);
     drawerOpenSound.currentTime = 0;
     drawerOpenSound.play().catch(() => {});
   } else {
+    drawer.classList.remove("active-position");
     drawerCloseSound.currentTime = 0;
     drawerCloseSound.play().catch(() => {});
   }
@@ -1102,13 +1123,18 @@ document.getElementById("togglePrepDrawer").addEventListener("click", () => {
   const opening = drawer.classList.contains("collapsed");
   drawer.classList.toggle("collapsed");
   if (opening) {
+    gatheringDrawer.classList.add("collapsed");
+    timersDrawer.classList.add("collapsed");
+    setActiveDrawer(drawer);
     drawerOpenSound.currentTime = 0;
     drawerOpenSound.play().catch(() => {});
   } else {
+    drawer.classList.remove("active-position");
     drawerCloseSound.currentTime = 0;
     drawerCloseSound.play().catch(() => {});
   }
 });
+
 document
   .getElementById("toggleGatheringDrawer")
   .addEventListener("click", () => {
@@ -1116,13 +1142,26 @@ document
     const opening = drawer.classList.contains("collapsed");
     drawer.classList.toggle("collapsed");
     if (opening) {
+      prepDrawer.classList.add("collapsed");
+      timersDrawer.classList.add("collapsed");
+      setActiveDrawer(drawer);
       drawerOpenSound.currentTime = 0;
       drawerOpenSound.play().catch(() => {});
     } else {
+      drawer.classList.remove("active-position");
       drawerCloseSound.currentTime = 0;
       drawerCloseSound.play().catch(() => {});
     }
   });
+
+function setActiveDrawer(activeDrawer) {
+  document
+    .querySelectorAll("#prepDrawer, #gatheringDrawer, #timersDrawer")
+    .forEach((drawer) => {
+      drawer.classList.remove("active-position");
+    });
+  activeDrawer.classList.add("active-position");
+}
 
 /* ============================================================
    MEALS PANEL (legacy)
@@ -1283,11 +1322,19 @@ function populateLocationFilter(items) {
   const select = document.getElementById("locationFilter");
   const locations = new Set();
   items.forEach((item) => {
-    const value = item.location || item.source;
-    if (value) {
-      locations.add(value);
+    if (item.locations?.length) {
+      item.locations.forEach((location) => {
+        locations.add(location);
+      });
+    }
+    if (item.location) {
+      locations.add(item.location);
+    }
+    if (item.source) {
+      locations.add(item.source);
     }
   });
+
   select.innerHTML = '<option value="all">All Locations</option>';
   [...locations].sort().forEach((location) => {
     const option = document.createElement("option");
@@ -1704,7 +1751,7 @@ function renderPrepDrawer() {
     material.addEventListener("click", () => {
       document.querySelector('[data-panel="items"]').click();
       document.getElementById("itemSearch").value = material.dataset.name;
-      console.log(material.dataset.name);
+      clearSearch.classList.remove("hidden");
       renderItemsPanel();
     });
   });
@@ -1742,6 +1789,20 @@ function renderGatheringDrawer() {
         No items listed
       </div>
     `;
+
+    summaryContainer.innerHTML = `
+    <div class="summary-container">
+      <div class="summary-stat">
+        Items: 0
+      </div>
+      <div class="summary-stat">
+        Quantity: 0
+      </div>
+      <div class="summary-stat">
+        Locations: 0
+      </div>
+    </div>
+  `;
     return;
   }
   const grouped = {};
